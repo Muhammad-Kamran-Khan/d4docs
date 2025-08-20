@@ -20,13 +20,17 @@ export const registerUser = asynchandler(async (req, res) => {
     const user = await User.create({ name, email, password });
     if (!user) { return res.status(400).json({ message: "Invalid user data" }); }
     const token = generateToken(user._id);
+    
+    // -- FIX APPLIED HERE: Add the domain property for cross-subdomain compatibility --
     res.cookie("token", token, {
         path: "/",
         httpOnly: true,
         expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
+        domain: ".vercel.app", // This allows the cookie to be shared between subdomains
     });
+
     const { _id, role, photo, bio, isVerified } = user;
     res.status(201).json({ _id, name: user.name, email: user.email, role, photo, bio, isVerified, token });
 });
@@ -40,25 +44,31 @@ export const loginUser = asynchandler(async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) { return res.status(400).json({ message: "Invalid credentials" }); }
     const token = generateToken(user._id);
+
+    // -- FIX APPLIED HERE: Add the domain property for cross-subdomain compatibility --
     res.cookie("token", token, {
         path: "/",
         httpOnly: true,
         expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
+        domain: ".vercel.app", // This allows the cookie to be shared between subdomains
     });
+
     const { _id, name, role, photo, bio, isVerified } = user;
     res.status(200).json({ _id, name, email: user.email, role, photo, bio, isVerified, token });
 });
 
 // --- LOGOUT USER ---
 export const logoutUser = asynchandler(async (req, res) => {
+    // -- FIX APPLIED HERE: Add the domain property to ensure the cookie is cleared from the right place --
     res.cookie("token", "", {
         path: "/",
         httpOnly: true,
         expires: new Date(0),
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
+        domain: ".vercel.app", // This is crucial for clearing the cookie
     });
     res.status(200).json({ message: "User logged out successfully" });
 });
@@ -119,141 +129,141 @@ export const userLoginStatus = asynchandler(async (req, res) => {
 });
 
 export const verifyEmail = asynchandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
 
-  if (user.isVerified) {
-    return res.status(400).json({ message: "User already verified" });
-  }
+    if (user.isVerified) {
+        return res.status(400).json({ message: "User already verified" });
+    }
 
-  await Token.findOneAndDelete({ userId: user._id });
+    await Token.findOneAndDelete({ userId: user._id });
 
-  const verificationToken = crypto.randomBytes(64).toString("hex") + user._id;
-  const hashedToken = hashToken(verificationToken);
+    const verificationToken = crypto.randomBytes(64).toString("hex") + user._id;
+    const hashedToken = hashToken(verificationToken);
 
-  await new Token({
-    userId: user._id,
-    verificationToken: hashedToken,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-  }).save();
+    await new Token({
+        userId: user._id,
+        verificationToken: hashedToken,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    }).save();
 
-  const verificationLink = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
+    const verificationLink = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
 
-  const subject = "Email Verification - Auth2";
-  const send_to = user.email;
-  const send_from = process.env.USER_EMAIL;
+    const subject = "Email Verification - Auth2";
+    const send_to = user.email;
+    const send_from = process.env.USER_EMAIL;
 
-  try {
-    await sendEmail(subject, send_to, send_from, "emailVerification", user.name, verificationLink);
-    res.status(200).json({ message: "Verification email sent successfully." });
-  } catch (error) {
-    console.error("Error sending email: ", error);
-    res.status(500).json({ message: "Email could not be sent. Please try again later." });
-  }
+    try {
+        await sendEmail(subject, send_to, send_from, "emailVerification", user.name, verificationLink);
+        res.status(200).json({ message: "Verification email sent successfully." });
+    } catch (error) {
+        console.error("Error sending email: ", error);
+        res.status(500).json({ message: "Email could not be sent. Please try again later." });
+    }
 });
 
 export const verifyUser = asynchandler(async (req, res) => {
-  const { verificationToken } = req.params;
+    const { verificationToken } = req.params;
 
-  if (!verificationToken) {
-    return res.status(400).json({ message: "Invalid verification token provided." });
-  }
+    if (!verificationToken) {
+        return res.status(400).json({ message: "Invalid verification token provided." });
+    }
 
-  const hashedToken = hashToken(verificationToken);
+    const hashedToken = hashToken(verificationToken);
 
-  const userToken = await Token.findOne({
-    verificationToken: hashedToken,
-    expiresAt: { $gt: Date.now() },
-  });
+    const userToken = await Token.findOne({
+        verificationToken: hashedToken,
+        expiresAt: { $gt: Date.now() },
+    });
 
-  if (!userToken) {
-    return res.status(400).json({ message: "Invalid or expired verification token." });
-  }
+    if (!userToken) {
+        return res.status(400).json({ message: "Invalid or expired verification token." });
+    }
 
-  const user = await User.findById(userToken.userId);
-  if (!user) {
-    return res.status(404).json({ message: "User not found." });
-  }
+    const user = await User.findById(userToken.userId);
+    if (!user) {
+        return res.status(404).json({ message: "User not found." });
+    }
 
-  user.isVerified = true;
-  await user.save();
-  await userToken.deleteOne();
+    user.isVerified = true;
+    await user.save();
+    await userToken.deleteOne();
 
-  res.status(200).json({ message: "User verified successfully." });
+    res.status(200).json({ message: "User verified successfully." });
 });
 
 export const forgetPassword = asynchandler(async (req, res) => {
-  const { email } = req.body;
+    const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ message: "Email is required." });
-  }
+    if (!email) {
+        return res.status(400).json({ message: "Email is required." });
+    }
 
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(404).json({ message: "No user found with that email." });
-  }
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(404).json({ message: "No user found with that email." });
+    }
 
-  await Token.findOneAndDelete({ userId: user._id });
+    await Token.findOneAndDelete({ userId: user._id });
 
-  const passwordResetToken = crypto.randomBytes(64).toString("hex") + user._id;
-  const hashedToken = hashToken(passwordResetToken);
+    const passwordResetToken = crypto.randomBytes(64).toString("hex") + user._id;
+    const hashedToken = hashToken(passwordResetToken);
 
-  await new Token({
-    userId: user._id,
-    passwordResetToken: hashedToken,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + 60 * 60 * 1000,
-  }).save();
+    await new Token({
+        userId: user._id,
+        passwordResetToken: hashedToken,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60 * 60 * 1000,
+    }).save();
 
-  const resetLink = `${process.env.CLIENT_URL}/reset-password/${passwordResetToken}`;
+    const resetLink = `${process.env.CLIENT_URL}/reset-password/${passwordResetToken}`;
 
-  const subject = "Password Reset - Auth2";
-  const send_to = user.email;
-  const send_from = process.env.USER_EMAIL;
+    const subject = "Password Reset - Auth2";
+    const send_to = user.email;
+    const send_from = process.env.USER_EMAIL;
 
-  try {
-    await sendEmail(subject, send_to, send_from, "forgotPassword", user.name, resetLink);
-    res.status(200).json({ message: "Password reset email sent successfully." });
-  } catch (error) {
-    console.error("Error sending email: ", error);
-    res.status(500).json({ message: "Email could not be sent. Please try again later." });
-  }
+    try {
+        await sendEmail(subject, send_to, send_from, "forgotPassword", user.name, resetLink);
+        res.status(200).json({ message: "Password reset email sent successfully." });
+    } catch (error) {
+        console.error("Error sending email: ", error);
+        res.status(500).json({ message: "Email could not be sent. Please try again later." });
+    }
 });
 
 
 export const resetPassword = asynchandler(async (req, res) => {
-  const { resetPasswordToken } = req.params;
-  const { password } = req.body;
+    const { resetPasswordToken } = req.params;
+    const { password } = req.body;
 
-  if (!password || password.length < 6) {
-    return res.status(400).json({ message: "Please provide a valid password (min 6 characters)." });
-  }
+    if (!password || password.length < 6) {
+        return res.status(400).json({ message: "Please provide a valid password (min 6 characters)." });
+    }
 
-  const hashedToken = hashToken(resetPasswordToken);
+    const hashedToken = hashToken(resetPasswordToken);
 
-  const userToken = await Token.findOne({
-    passwordResetToken: hashedToken,
-    expiresAt: { $gt: Date.now() },
-  });
+    const userToken = await Token.findOne({
+        passwordResetToken: hashedToken,
+        expiresAt: { $gt: Date.now() },
+    });
 
-  if (!userToken) {
-    return res.status(400).json({ message: "Invalid or expired reset token." });
-  }
+    if (!userToken) {
+        return res.status(400).json({ message: "Invalid or expired reset token." });
+    }
 
-  const user = await User.findById(userToken.userId);
-  if (!user) {
-    return res.status(404).json({ message: "User not found." });
-  }
+    const user = await User.findById(userToken.userId);
+    if (!user) {
+        return res.status(404).json({ message: "User not found." });
+    }
 
-  user.password = password;
-  await user.save();
-  await userToken.deleteOne();
+    user.password = password;
+    await user.save();
+    await userToken.deleteOne();
 
-  res.status(200).json({ message: "Password reset successfully." });
+    res.status(200).json({ message: "Password reset successfully." });
 });
 
 export const changePassword = asynchandler(async (req, res) => {
