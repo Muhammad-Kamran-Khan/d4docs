@@ -43,7 +43,7 @@ export default function TextEditor() {
     const shareDropdownRef = useRef(null);
 
     useEffect(() => {
-        const s = io('https://d4docs-backend.vercel.app', { withCredentials: true });
+        const s = io('http://localhost:3001', { withCredentials: true });
         setSocket(s);
 
         const onConnectError = (err) => toast.error(err?.message || 'Socket connection failed');

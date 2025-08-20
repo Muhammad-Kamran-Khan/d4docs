@@ -8,7 +8,7 @@ const UserContext = createContext();
 axios.defaults.withCredentials = true;
 
 export const UserContextProvider = ({ children }) => {
-  const serverUrl = "https://d4docs-backend.vercel.app";
+  const serverUrl = "http://localhost:3001";
   const navigate = useNavigate();
 
   const [user, setUser] = useState({});
