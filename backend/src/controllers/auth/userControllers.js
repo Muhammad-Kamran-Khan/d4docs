@@ -21,14 +21,12 @@ export const registerUser = asynchandler(async (req, res) => {
     if (!user) { return res.status(400).json({ message: "Invalid user data" }); }
     const token = generateToken(user._id);
     
-    // -- FIX APPLIED HERE: Add the domain property for cross-subdomain compatibility --
     res.cookie("token", token, {
         path: "/",
         httpOnly: true,
         expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        domain: ".vercel.app", // This allows the cookie to be shared between subdomains
+        sameSite: "none",
+        secure: true,
     });
 
     const { _id, role, photo, bio, isVerified } = user;
@@ -45,14 +43,12 @@ export const loginUser = asynchandler(async (req, res) => {
     if (!isMatch) { return res.status(400).json({ message: "Invalid credentials" }); }
     const token = generateToken(user._id);
 
-    // -- FIX APPLIED HERE: Add the domain property for cross-subdomain compatibility --
     res.cookie("token", token, {
         path: "/",
         httpOnly: true,
         expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        domain: ".vercel.app", // This allows the cookie to be shared between subdomains
+        sameSite: "none",
+        secure: true,
     });
 
     const { _id, name, role, photo, bio, isVerified } = user;
@@ -61,14 +57,12 @@ export const loginUser = asynchandler(async (req, res) => {
 
 // --- LOGOUT USER ---
 export const logoutUser = asynchandler(async (req, res) => {
-    // -- FIX APPLIED HERE: Add the domain property to ensure the cookie is cleared from the right place --
     res.cookie("token", "", {
         path: "/",
         httpOnly: true,
         expires: new Date(0),
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        domain: ".vercel.app", // This is crucial for clearing the cookie
+        sameSite: "none",
+        secure: true,
     });
     res.status(200).json({ message: "User logged out successfully" });
 });
