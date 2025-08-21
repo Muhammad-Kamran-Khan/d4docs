@@ -12,7 +12,7 @@ import aiRoutes from './src/routes/aiRoutes.js';
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
-const CLIENT_ORIGIN = 'http://localhost:3001';
+const CLIENT_ORIGIN = 'https://d4docs.vercel.app';
 
 const app = express();
 
