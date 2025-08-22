@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "./models/auth/UserModel.js";
 import Document from "./models/Document.js";
+import dotenv from 'dotenv'
+dotenv.config();
 
 let io = null;
 
@@ -23,7 +25,7 @@ const authenticateSocket = async (socket, next) => {
 
 export function initializeSocket(server) {
     io = new Server(server, {
-        cors: { origin: "http://localhost:5173", credentials: true },
+        cors: { origin: process.env.CLIENT_URL, credentials: true },
     });
 
     io.use(authenticateSocket);
